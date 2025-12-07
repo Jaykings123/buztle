@@ -1,111 +1,213 @@
 const express = require('express');
 const router = express.Router();
+const rateLimit = require('express-rate-limit');
 const { PrismaClient } = require('@prisma/client');
 const jwt = require('jsonwebtoken');
+const bcrypt = require('bcrypt');
+const crypto = require('crypto');
+const { validate, validationRules } = require('../middleware/validation');
 
 const prisma = new PrismaClient();
 const JWT_SECRET = process.env.JWT_SECRET || 'supersecretkey';
 
-// Twilio Setup (optional - falls back to mock if not configured)
-let twilioClient = null;
-if (process.env.TWILIO_ACCOUNT_SID && process.env.TWILIO_AUTH_TOKEN) {
-    const twilio = require('twilio');
-    twilioClient = twilio(
-        process.env.TWILIO_ACCOUNT_SID,
-        process.env.TWILIO_AUTH_TOKEN
-    );
-}
-
-// OTP Store (In memory for MVP)
-const otpStore = {};
-
-// Send OTP
-router.post('/send-otp', async (req, res) => {
-    const { phone } = req.body;
-    if (!phone) return res.status(400).json({ error: 'Phone number required' });
-
-    // Generate OTP (6-digit for production, 1234 for dev)
-    const isDevelopment = !twilioClient || process.env.NODE_ENV === 'development';
-    const otp = isDevelopment ? '1234' : Math.floor(100000 + Math.random() * 900000).toString();
-
-    // Store with 5-minute expiration
-    otpStore[phone] = {
-        otp,
-        expiresAt: Date.now() + 5 * 60 * 1000
-    };
-
-    console.log(`OTP for ${phone}: ${otp}`);
-
-    // Send SMS via Twilio if configured
-    if (!isDevelopment && twilioClient) {
-        try {
-            await twilioClient.messages.create({
-                body: `Your Buztle verification code is: ${otp}. Valid for 5 minutes.`,
-                from: process.env.TWILIO_PHONE_NUMBER,
-                to: `+91${phone}` // Adjust country code as needed
-            });
-            console.log(`SMS sent to ${phone}`);
-        } catch (error) {
-            console.error('Twilio SMS error:', error);
-            return res.status(500).json({ error: 'Failed to send OTP' });
-        }
-    }
-
-    res.json({ success: true, message: 'OTP sent successfully' });
+// Rate limits for authentication endpoints
+const authLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000, // 15 minutes
+    max: 5, // 5 attempts per window
+    message: 'Too many authentication attempts, please try again later',
+    skipSuccessfulRequests: true
 });
 
-// Verify OTP
-router.post('/verify-otp', async (req, res) => {
-    const { phone, otp } = req.body;
+// Helper: Generate verification token
+const generateVerificationToken = () => {
+    return crypto.randomBytes(32).toString('hex');
+};
 
-    const stored = otpStore[phone];
+// Helper: Send verification email (mock for now, can integrate with nodemailer)
+const sendVerificationEmail = async (email, token) => {
+    // TODO: Integrate with actual email service (nodemailer, SendGrid, etc.)
+    const verificationLink = `${process.env.FRONTEND_URL || 'http://localhost:5173'}/verify-email?token=${token}`;
+    console.log(`
+    ========================================
+    VERIFICATION EMAIL (Mock)
+    To: ${email}
+    Link: ${verificationLink}
+    ========================================
+    `);
+    // For now, just log the link. In production, send actual email.
+    return true;
+};
 
-    // Check if OTP exists
-    if (!stored || stored.otp !== otp) {
-        return res.status(400).json({ error: 'Invalid OTP' });
-    }
+// Register with Email/Password
+router.post('/register', validationRules.register, validate, async (req, res, next) => {
+    const { phone, email, password, name, role } = req.body;
 
-    // Check expiration
-    if (Date.now() > stored.expiresAt) {
-        delete otpStore[phone];
-        return res.status(400).json({ error: 'OTP expired. Please request a new one.' });
-    }
 
-    // Clear OTP
-    delete otpStore[phone];
-
-    // Check if user exists
-    const user = await prisma.user.findUnique({ where: { phone } });
-
-    if (user) {
-        const token = jwt.sign({ userId: user.id, role: user.role }, JWT_SECRET);
-        return res.json({ token, user, isNewUser: false });
-    } else {
-        return res.json({ isNewUser: true });
-    }
-});
-
-// Register
-router.post('/register', async (req, res) => {
-    const { phone, name, role, photoUrl, idCardUrl } = req.body;
 
     try {
-        const user = await prisma.user.create({
-            data: {
-                phone,
-                name,
-                role, // ORGANIZER or VOLUNTEER
-                photoUrl,
-                idCardUrl,
-                isVerified: false // Default to false
+        // Check if user already exists
+        const existingUser = await prisma.user.findFirst({
+            where: {
+                OR: [
+                    { phone },
+                    { email }
+                ]
             }
         });
 
-        const token = jwt.sign({ userId: user.id, role: user.role }, JWT_SECRET);
-        res.json({ token, user });
+        if (existingUser) {
+            return res.status(400).json({
+                error: existingUser.email === email ? 'Email already registered' : 'Phone already registered'
+            });
+        }
+
+        // Hash password
+        const hashedPassword = await bcrypt.hash(password, 10);
+
+        // Create user (email verified by default - no verification needed)
+        const user = await prisma.user.create({
+            data: {
+                phone,
+                email,
+                password: hashedPassword,
+                name,
+                role,
+                isVerified: false,
+                emailVerified: true, // Auto-verify for now
+                verificationToken: null
+            }
+        });
+
+        // Generate JWT
+        const token = jwt.sign({ id: user.id, role: user.role }, JWT_SECRET);
+
+        res.json({
+            token,
+            user: {
+                id: user.id,
+                phone: user.phone,
+                email: user.email,
+                name: user.name,
+                role: user.role,
+                emailVerified: user.emailVerified
+            },
+            message: 'Registration successful! You can now login.'
+        });
     } catch (error) {
-        console.error(error);
-        res.status(500).json({ error: 'Registration failed' });
+        next(error); // Pass to error handler
+    }
+});
+
+// Login with Email/Phone + Password
+router.post('/login', authLimiter, validationRules.login, validate, async (req, res, next) => {
+    const { identifier, password } = req.body; // identifier can be email or phone
+
+    try {
+        // Find user by email OR phone
+        const user = await prisma.user.findFirst({
+            where: {
+                OR: [
+                    { email: identifier },
+                    { phone: identifier }
+                ]
+            }
+        });
+
+        if (!user) {
+            return res.status(400).json({ error: 'Invalid credentials' });
+        }
+
+        // Check password
+        const validPassword = await bcrypt.compare(password, user.password);
+        if (!validPassword) {
+            return res.status(400).json({ error: 'Invalid credentials' });
+        }
+
+        // Generate JWT
+        const token = jwt.sign({ id: user.id, role: user.role }, JWT_SECRET);
+
+        res.json({
+            token,
+            user: {
+                id: user.id,
+                phone: user.phone,
+                email: user.email,
+                name: user.name,
+                role: user.role,
+                emailVerified: user.emailVerified
+            }
+        });
+    } catch (error) {
+        next(error);
+    }
+});
+
+// Verify Email
+router.get('/verify-email', async (req, res) => {
+    const { token } = req.query;
+
+    if (!token) {
+        return res.status(400).json({ error: 'Verification token required' });
+    }
+
+    try {
+        const user = await prisma.user.findFirst({
+            where: { verificationToken: token }
+        });
+
+        if (!user) {
+            return res.status(400).json({ error: 'Invalid or expired verification token' });
+        }
+
+        // Update user
+        await prisma.user.update({
+            where: { id: user.id },
+            data: {
+                emailVerified: true,
+                verificationToken: null
+            }
+        });
+
+        res.json({ success: true, message: 'Email verified successfully! You can now login.' });
+    } catch (error) {
+        console.error('Verification error:', error);
+        res.status(500).json({ error: 'Verification failed' });
+    }
+});
+
+// Resend verification email
+router.post('/resend-verification', async (req, res) => {
+    const { email } = req.body;
+
+    if (!email) {
+        return res.status(400).json({ error: 'Email is required' });
+    }
+
+    try {
+        const user = await prisma.user.findUnique({ where: { email } });
+
+        if (!user) {
+            return res.status(404).json({ error: 'User not found' });
+        }
+
+        if (user.emailVerified) {
+            return res.status(400).json({ error: 'Email already verified' });
+        }
+
+        // Generate new token
+        const verificationToken = generateVerificationToken();
+
+        await prisma.user.update({
+            where: { id: user.id },
+            data: { verificationToken }
+        });
+
+        await sendVerificationEmail(email, verificationToken);
+
+        res.json({ success: true, message: 'Verification email sent!' });
+    } catch (error) {
+        console.error('Resend verification error:', error);
+        res.status(500).json({ error: 'Failed to resend verification email' });
     }
 });
 

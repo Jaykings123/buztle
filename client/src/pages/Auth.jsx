@@ -2,64 +2,80 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import toast from 'react-hot-toast';
-import { FiLock, FiUser, FiPhone, FiZap } from 'react-icons/fi';
-import { sendOTP, verifyOTP, register } from '../api/client';
+import { FiMail, FiLock, FiUser, FiPhone, FiZap } from 'react-icons/fi';
+import { register, login } from '../api/client';
 import { useAuth } from '../context/AuthContext';
 import ParticleBackground from '../components/ParticleBackground';
 import MagneticButton from '../components/MagneticButton';
 
 const Auth = () => {
     const navigate = useNavigate();
-    const { login } = useAuth();
-    const [step, setStep] = useState('phone'); // 'phone', 'otp', 'register'
-    const [phone, setPhone] = useState('');
-    const [otp, setOtp] = useState('');
-    const [name, setName] = useState('');
-    const [role, setRole] = useState('VOLUNTEER');
+    const { login: authLogin } = useAuth();
+    const [isLogin, setIsLogin] = useState(true);
     const [loading, setLoading] = useState(false);
 
-    const handleSendOTP = async (e) => {
-        e.preventDefault();
-        setLoading(true);
-        try {
-            await sendOTP(phone);
-            toast.success('OTP sent successfully!');
-            setStep('otp');
-        } catch (err) {
-            toast.error('Failed to send OTP. Please try again.');
-        }
-        setLoading(false);
-    };
+    // Login form
+    const [loginData, setLoginData] = useState({
+        identifier: '', // email or phone
+        password: ''
+    });
 
-    const handleVerifyOTP = async (e) => {
+    // Registration form
+    const [registerData, setRegisterData] = useState({
+        name: '',
+        email: '',
+        phone: '',
+        password: '',
+        confirmPassword: '',
+        role: 'VOLUNTEER'
+    });
+
+    const handleLogin = async (e) => {
         e.preventDefault();
         setLoading(true);
         try {
-            const res = await verifyOTP(phone, otp);
-            if (res.data.isNewUser) {
-                toast.success('OTP verified! Please complete your profile.');
-                setStep('register');
-            } else {
-                toast.success('Welcome back!');
-                login(res.data.token, res.data.user);
-                navigate('/dashboard');
-            }
+            const res = await login(loginData.identifier, loginData.password);
+            toast.success('Login successful!');
+            authLogin(res.data.token, res.data.user);
+            navigate('/dashboard');
         } catch (err) {
-            toast.error('Invalid OTP. Please try again.');
+            const errorMsg = err.response?.data?.error || 'Login failed';
+            if (err.response?.data?.emailVerified === false) {
+                toast.error('Please verify your email first. Check your inbox!');
+            } else {
+                toast.error(errorMsg);
+            }
         }
         setLoading(false);
     };
 
     const handleRegister = async (e) => {
         e.preventDefault();
+
+        // Validation
+        if (registerData.password !== registerData.confirmPassword) {
+            toast.error('Passwords do not match!');
+            return;
+        }
+
+        if (registerData.password.length < 6) {
+            toast.error('Password must be at least 6 characters!');
+            return;
+        }
+
         setLoading(true);
         try {
-            const res = await register({ phone, name, role });
-            toast.success(`Welcome to Buztle, ${name}!`);
-            login(res.data.token, res.data.user);
-            navigate('/dashboard');
+            const res = await register({
+                name: registerData.name,
+                email: registerData.email,
+                phone: registerData.phone,
+                password: registerData.password,
+                role: registerData.role
+            });
+            toast.success(res.data.message || 'Registration successful! Please check your email to verify your account.');
+            setIsLogin(true); // Switch to login view
         } catch (err) {
-            toast.error('Registration failed. Please try again.');
+            toast.error(err.response?.data?.error || 'Registration failed');
         }
         setLoading(false);
     };
@@ -72,7 +88,7 @@ const Auth = () => {
             {/* Cyber Grid Overlay */}
             <div className="fixed inset-0 cyber-grid opacity-10 pointer-events-none z-0"></div>
 
-            <div className="relative z-10 min-h-screen flex items-center justify-center px-6">
+            <div className="relative z-10 min-h-screen flex items-center justify-center px-6 py-12">
                 <motion.div
                     initial={{ opacity: 0, y: 50 }}
                     animate={{ opacity: 1, y: 0 }}
@@ -107,104 +123,193 @@ const Auth = () => {
                         transition={{ delay: 0.3, duration: 0.6 }}
                         className="glass-morph p-10 rounded-3xl neon-border"
                     >
-                        <h2 className="text-3xl font-bold text-white mb-8 text-center neon-glow">
-                            {step === 'phone' && <><FiPhone className="inline mr-2" />Enter Phone</>}
-                            {step === 'otp' && <><FiLock className="inline mr-2" />Verify OTP</>}
-                            {step === 'register' && <><FiUser className="inline mr-2" />Complete Profile</>}
-                        </h2>
+                        {/* Toggle Buttons */}
+                        <div className="flex gap-4 mb-8">
+                            <button
+                                onClick={() => setIsLogin(true)}
+                                className={`flex-1 py-3 rounded-xl font-bold transition-all ${isLogin
+                                        ? 'bg-gradient-to-r from-cyan-500 to-blue-500 text-white'
+                                        : 'glass-morph text-gray-400 hover:text-white'
+                                    }`}
+                            >
+                                Login
+                            </button>
+                            <button
+                                onClick={() => setIsLogin(false)}
+                                className={`flex-1 py-3 rounded-xl font-bold transition-all ${!isLogin
+                                        ? 'bg-gradient-to-r from-cyan-500 to-blue-500 text-white'
+                                        : 'glass-morph text-gray-400 hover:text-white'
+                                    }`}
+                            >
+                                Register
+                            </button>
+                        </div>
 
-                        {step === 'phone' && (
+                        {/* Login Form */}
+                        {isLogin ? (
                             <motion.form
                                 initial={{ opacity: 0, x: -20 }}
                                 animate={{ opacity: 1, x: 0 }}
-                                onSubmit={handleSendOTP}
+                                onSubmit={handleLogin}
+                                className="space-y-6"
                             >
-                                <div className="relative mb-6">
-                                    <FiPhone className="absolute left-4 top-1/2 -translate-y-1/2 text-cyan-400" />
-                                    <input
-                                        type="tel"
-                                        placeholder="Phone Number"
-                                        value={phone}
-                                        onChange={(e) => setPhone(e.target.value)}
-                                        className="w-full pl-12 pr-6 py-4 glass-morph border-2 border-cyan-500/30 rounded-xl text-white placeholder-gray-400 focus:outline-none focus:border-cyan-500 focus:shadow-[0_0_20px_rgba(6,182,212,0.3)] transition-all"
-                                        required
-                                    />
+                                <div>
+                                    <label className="block text-cyan-300 mb-2 text-sm font-semibold">
+                                        Email or Phone
+                                    </label>
+                                    <div className="relative">
+                                        <FiMail className="absolute left-4 top-1/2 -translate-y-1/2 text-cyan-400" />
+                                        <input
+                                            type="text"
+                                            value={loginData.identifier}
+                                            onChange={(e) => setLoginData({ ...loginData, identifier: e.target.value })}
+                                            className="w-full pl-12 pr-6 py-4 glass-morph border-2 border-cyan-500/30 rounded-xl text-white placeholder-gray-400 focus:outline-none focus:border-cyan-500 focus:shadow-[0_0_20px_rgba(6,182,212,0.3)] transition-all"
+                                            placeholder="Enter email or phone"
+                                            required
+                                        />
+                                    </div>
                                 </div>
+
+                                <div>
+                                    <label className="block text-cyan-300 mb-2 text-sm font-semibold">
+                                        Password
+                                    </label>
+                                    <div className="relative">
+                                        <FiLock className="absolute left-4 top-1/2 -translate-y-1/2 text-cyan-400" />
+                                        <input
+                                            type="password"
+                                            value={loginData.password}
+                                            onChange={(e) => setLoginData({ ...loginData, password: e.target.value })}
+                                            className="w-full pl-12 pr-6 py-4 glass-morph border-2 border-cyan-500/30 rounded-xl text-white placeholder-gray-400 focus:outline-none focus:border-cyan-500 focus:shadow-[0_0_20px_rgba(6,182,212,0.3)] transition-all"
+                                            placeholder="Enter password"
+                                            required
+                                        />
+                                    </div>
+                                </div>
+
                                 <MagneticButton
                                     type="submit"
                                     disabled={loading}
                                     className="w-full py-4 bg-gradient-to-r from-cyan-500 via-blue-500 to-purple-500 text-white font-bold rounded-xl shadow-lg hover:shadow-cyan-500/50 transition-all disabled:opacity-50 flex items-center justify-center gap-2"
                                 >
                                     <FiZap />
-                                    {loading ? 'Sending...' : 'Send OTP'}
-                                </MagneticButton>
-                                <p className="text-gray-400 text-sm mt-6 text-center glass-morph p-3 rounded-lg">
-                                    <strong className="text-cyan-400">Demo:</strong> Use any phone number. OTP is <strong className="text-cyan-300">1234</strong>
-                                </p>
-                            </motion.form>
-                        )}
-
-                        {step === 'otp' && (
-                            <motion.form
-                                initial={{ opacity: 0, x: -20 }}
-                                animate={{ opacity: 1, x: 0 }}
-                                onSubmit={handleVerifyOTP}
-                            >
-                                <div className="relative mb-6">
-                                    <FiLock className="absolute left-4 top-1/2 -translate-y-1/2 text-cyan-400" />
-                                    <input
-                                        type="text"
-                                        placeholder="Enter OTP"
-                                        value={otp}
-                                        onChange={(e) => setOtp(e.target.value)}
-                                        className="w-full pl-12 pr-6 py-4 glass-morph border-2 border-cyan-500/30 rounded-xl text-white text-center text-2xl placeholder-gray-400 focus:outline-none focus:border-cyan-500 focus:shadow-[0_0_20px_rgba(6,182,212,0.3)] transition-all tracking-widest"
-                                        required
-                                        maxLength="4"
-                                    />
-                                </div>
-                                <MagneticButton
-                                    type="submit"
-                                    disabled={loading}
-                                    className="w-full py-4 bg-gradient-to-r from-cyan-500 via-blue-500 to-purple-500 text-white font-bold rounded-xl shadow-lg hover:shadow-cyan-500/50 transition-all disabled:opacity-50 flex items-center justify-center gap-2"
-                                >
-                                    <FiZap />
-                                    {loading ? 'Verifying...' : 'Verify OTP'}
+                                    {loading ? 'Logging in...' : 'Login'}
                                 </MagneticButton>
                             </motion.form>
-                        )}
-
-                        {step === 'register' && (
+                        ) : (
+                            /* Register Form */
                             <motion.form
-                                initial={{ opacity: 0, x: -20 }}
+                                initial={{ opacity: 0, x: 20 }}
                                 animate={{ opacity: 1, x: 0 }}
                                 onSubmit={handleRegister}
+                                className="space-y-4"
                             >
-                                <div className="relative mb-4">
-                                    <FiUser className="absolute left-4 top-1/2 -translate-y-1/2 text-cyan-400" />
-                                    <input
-                                        type="text"
-                                        placeholder="Full Name"
-                                        value={name}
-                                        onChange={(e) => setName(e.target.value)}
-                                        className="w-full pl-12 pr-6 py-4 glass-morph border-2 border-cyan-500/30 rounded-xl text-white placeholder-gray-400 focus:outline-none focus:border-cyan-500 focus:shadow-[0_0_20px_rgba(6,182,212,0.3)] transition-all"
-                                        required
-                                    />
+                                <div>
+                                    <label className="block text-cyan-300 mb-2 text-sm font-semibold">
+                                        Full Name
+                                    </label>
+                                    <div className="relative">
+                                        <FiUser className="absolute left-4 top-1/2 -translate-y-1/2 text-cyan-400" />
+                                        <input
+                                            type="text"
+                                            value={registerData.name}
+                                            onChange={(e) => setRegisterData({ ...registerData, name: e.target.value })}
+                                            className="w-full pl-12 pr-6 py-4 glass-morph border-2 border-cyan-500/30 rounded-xl text-white placeholder-gray-400 focus:outline-none focus:border-cyan-500 focus:shadow-[0_0_20px_rgba(6,182,212,0.3)] transition-all"
+                                            placeholder="Enter your name"
+                                            required
+                                        />
+                                    </div>
                                 </div>
-                                <select
-                                    value={role}
-                                    onChange={(e) => setRole(e.target.value)}
-                                    className="w-full px-6 py-4 glass-morph border-2 border-cyan-500/30 rounded-xl text-white focus:outline-none focus:border-cyan-500 focus:shadow-[0_0_20px_rgba(6,182,212,0.3)] transition-all mb-6"
-                                >
-                                    <option value="VOLUNTEER" className="bg-slate-900">🙋 Volunteer</option>
-                                    <option value="ORGANIZER" className="bg-slate-900">🎯 Organizer</option>
-                                </select>
+
+                                <div>
+                                    <label className="block text-cyan-300 mb-2 text-sm font-semibold">
+                                        Email
+                                    </label>
+                                    <div className="relative">
+                                        <FiMail className="absolute left-4 top-1/2 -translate-y-1/2 text-cyan-400" />
+                                        <input
+                                            type="email"
+                                            value={registerData.email}
+                                            onChange={(e) => setRegisterData({ ...registerData, email: e.target.value })}
+                                            className="w-full pl-12 pr-6 py-4 glass-morph border-2 border-cyan-500/30 rounded-xl text-white placeholder-gray-400 focus:outline-none focus:border-cyan-500 focus:shadow-[0_0_20px_rgba(6,182,212,0.3)] transition-all"
+                                            placeholder="Enter your email"
+                                            required
+                                        />
+                                    </div>
+                                </div>
+
+                                <div>
+                                    <label className="block text-cyan-300 mb-2 text-sm font-semibold">
+                                        Phone
+                                    </label>
+                                    <div className="relative">
+                                        <FiPhone className="absolute left-4 top-1/2 -translate-y-1/2 text-cyan-400" />
+                                        <input
+                                            type="tel"
+                                            value={registerData.phone}
+                                            onChange={(e) => setRegisterData({ ...registerData, phone: e.target.value })}
+                                            className="w-full pl-12 pr-6 py-4 glass-morph border-2 border-cyan-500/30 rounded-xl text-white placeholder-gray-400 focus:outline-none focus:border-cyan-500 focus:shadow-[0_0_20px_rgba(6,182,212,0.3)] transition-all"
+                                            placeholder="Enter your phone"
+                                            required
+                                        />
+                                    </div>
+                                </div>
+
+                                <div>
+                                    <label className="block text-cyan-300 mb-2 text-sm font-semibold">
+                                        Password
+                                    </label>
+                                    <div className="relative">
+                                        <FiLock className="absolute left-4 top-1/2 -translate-y-1/2 text-cyan-400" />
+                                        <input
+                                            type="password"
+                                            value={registerData.password}
+                                            onChange={(e) => setRegisterData({ ...registerData, password: e.target.value })}
+                                            className="w-full pl-12 pr-6 py-4 glass-morph border-2 border-cyan-500/30 rounded-xl text-white placeholder-gray-400 focus:outline-none focus:border-cyan-500 focus:shadow-[0_0_20px_rgba(6,182,212,0.3)] transition-all"
+                                            placeholder="Create password (min 6 chars)"
+                                            required
+                                        />
+                                    </div>
+                                </div>
+
+                                <div>
+                                    <label className="block text-cyan-300 mb-2 text-sm font-semibold">
+                                        Confirm Password
+                                    </label>
+                                    <div className="relative">
+                                        <FiLock className="absolute left-4 top-1/2 -translate-y-1/2 text-cyan-400" />
+                                        <input
+                                            type="password"
+                                            value={registerData.confirmPassword}
+                                            onChange={(e) => setRegisterData({ ...registerData, confirmPassword: e.target.value })}
+                                            className="w-full pl-12 pr-6 py-4 glass-morph border-2 border-cyan-500/30 rounded-xl text-white placeholder-gray-400 focus:outline-none focus:border-cyan-500 focus:shadow-[0_0_20px_rgba(6,182,212,0.3)] transition-all"
+                                            placeholder="Confirm password"
+                                            required
+                                        />
+                                    </div>
+                                </div>
+
+                                <div>
+                                    <label className="block text-cyan-300 mb-2 text-sm font-semibold">
+                                        Role
+                                    </label>
+                                    <select
+                                        value={registerData.role}
+                                        onChange={(e) => setRegisterData({ ...registerData, role: e.target.value })}
+                                        className="w-full px-6 py-4 glass-morph border-2 border-cyan-500/30 rounded-xl text-white focus:outline-none focus:border-cyan-500 focus:shadow-[0_0_20px_rgba(6,182,212,0.3)] transition-all"
+                                    >
+                                        <option value="VOLUNTEER" className="bg-slate-900">🙋 Volunteer</option>
+                                        <option value="ORGANIZER" className="bg-slate-900">🎯 Organizer</option>
+                                    </select>
+                                </div>
+
                                 <MagneticButton
                                     type="submit"
                                     disabled={loading}
                                     className="w-full py-4 bg-gradient-to-r from-cyan-500 via-blue-500 to-purple-500 text-white font-bold rounded-xl shadow-lg hover:shadow-cyan-500/50 transition-all disabled:opacity-50 flex items-center justify-center gap-2"
                                 >
                                     <FiZap />
-                                    {loading ? 'Creating...' : 'Complete Registration'}
+                                    {loading ? 'Registering...' : 'Register'}
                                 </MagneticButton>
                             </motion.form>
                         )}

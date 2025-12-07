@@ -8,16 +8,20 @@ datasource db {
 }
 
 model User {
-  id          Int      @id @default(autoincrement())
-  phone       String   @unique
-  role        String   // "ORGANIZER" or "VOLUNTEER"
-  name        String?
-  photoUrl    String?
-  idCardUrl   String?
-  isVerified  Boolean  @default(false)
-  createdAt   DateTime @default(now())
-  events      Event[]
-  applications Application[]
+  id                 Int      @id @default(autoincrement())
+  phone              String   @unique
+  email              String   @unique
+  password           String
+  role               String   // "ORGANIZER" or "VOLUNTEER"
+  name               String?
+  photoUrl           String?
+  idCardUrl          String?
+  isVerified         Boolean  @default(false)
+  emailVerified      Boolean  @default(false)
+  verificationToken  String?
+  createdAt          DateTime @default(now())
+  events             Event[]
+  applications       Application[]
 }
 
 model Event {

@@ -17,9 +17,10 @@ api.interceptors.request.use((config) => {
 });
 
 // Auth
-export const sendOTP = (phone) => api.post('/auth/send-otp', { phone });
-export const verifyOTP = (phone, otp) => api.post('/auth/verify-otp', { phone, otp });
 export const register = (data) => api.post('/auth/register', data);
+export const login = (identifier, password) => api.post('/auth/login', { identifier, password });
+export const verifyEmail = (token) => api.get(`/auth/verify-email?token=${token}`);
+export const resendVerification = (email) => api.post('/auth/resend-verification', { email });
 
 // Events
 export const getEvents = () => api.get('/events');

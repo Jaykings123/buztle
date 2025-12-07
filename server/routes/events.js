@@ -2,11 +2,12 @@ const express = require('express');
 const router = express.Router();
 const { PrismaClient } = require('@prisma/client');
 const authenticateToken = require('../middleware/auth');
+const { validate, validationRules } = require('../middleware/validation');
 
 const prisma = new PrismaClient();
 
 // Create Event (Organizer only)
-router.post('/', authenticateToken, async (req, res) => {
+router.post('/', authenticateToken, validationRules.createEvent, validate, async (req, res, next) => {
     if (req.user.role !== 'ORGANIZER') {
         return res.status(403).json({ error: 'Only organizers can create events' });
     }
@@ -16,7 +17,7 @@ router.post('/', authenticateToken, async (req, res) => {
     try {
         const event = await prisma.event.create({
             data: {
-                organizerId: req.user.userId,
+                organizerId: req.user.id,
                 title,
                 description,
                 date,
@@ -29,8 +30,7 @@ router.post('/', authenticateToken, async (req, res) => {
         });
         res.json(event);
     } catch (error) {
-        console.error(error);
-        res.status(500).json({ error: 'Failed to create event' });
+        next(error);
     }
 });
 
@@ -83,7 +83,7 @@ router.delete('/:id', authenticateToken, async (req, res) => {
             return res.status(404).json({ error: 'Event not found' });
         }
 
-        if (event.organizerId !== req.user.userId) {
+        if (event.organizerId !== req.user.id) {
             return res.status(403).json({ error: 'Not authorized to cancel this event' });
         }
 

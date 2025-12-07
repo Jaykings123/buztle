@@ -2,11 +2,12 @@ const express = require('express');
 const router = express.Router();
 const { PrismaClient } = require('@prisma/client');
 const authenticateToken = require('../middleware/auth');
+const { validate, validationRules } = require('../middleware/validation');
 
 const prisma = new PrismaClient();
 
 // Apply for Event (Volunteer only)
-router.post('/', authenticateToken, async (req, res) => {
+router.post('/', authenticateToken, validationRules.createApplication, validate, async (req, res, next) => {
     if (req.user.role !== 'VOLUNTEER') {
         return res.status(403).json({ error: 'Only volunteers can apply' });
     }
@@ -18,7 +19,7 @@ router.post('/', authenticateToken, async (req, res) => {
         const existing = await prisma.application.findFirst({
             where: {
                 eventId: parseInt(eventId),
-                volunteerId: req.user.userId
+                volunteerId: req.user.id
             }
         });
 
@@ -29,7 +30,7 @@ router.post('/', authenticateToken, async (req, res) => {
         const application = await prisma.application.create({
             data: {
                 eventId: parseInt(eventId),
-                volunteerId: req.user.userId,
+                volunteerId: req.user.id,
                 status: 'PENDING'
             }
         });
@@ -44,7 +45,7 @@ router.post('/', authenticateToken, async (req, res) => {
 router.get('/my-applications', authenticateToken, async (req, res) => {
     try {
         const applications = await prisma.application.findMany({
-            where: { volunteerId: req.user.userId },
+            where: { volunteerId: req.user.id },
             include: { event: true },
             orderBy: { createdAt: 'desc' }
         });
@@ -65,7 +66,7 @@ router.get('/event/:eventId', authenticateToken, async (req, res) => {
             where: { id: parseInt(eventId) }
         });
 
-        if (!event || event.organizerId !== req.user.userId) {
+        if (!event || event.organizerId !== req.user.id) {
             return res.status(403).json({ error: 'Not authorized' });
         }
 
@@ -81,7 +82,7 @@ router.get('/event/:eventId', authenticateToken, async (req, res) => {
 });
 
 // Update Application Status (Organizer)
-router.patch('/:id', authenticateToken, async (req, res) => {
+router.patch('/:id', authenticateToken, validationRules.updateApplicationStatus, validate, async (req, res, next) => {
     const { id } = req.params;
     const { status } = req.body; // ACCEPTED, REJECTED
 
@@ -93,7 +94,7 @@ router.patch('/:id', authenticateToken, async (req, res) => {
 
         if (!application) return res.status(404).json({ error: 'Application not found' });
 
-        if (application.event.organizerId !== req.user.userId) {
+        if (application.event.organizerId !== req.user.id) {
             return res.status(403).json({ error: 'Not authorized' });
         }
 
@@ -125,7 +126,7 @@ router.delete('/:id', authenticateToken, async (req, res) => {
             return res.status(404).json({ error: 'Application not found' });
         }
 
-        if (application.volunteerId !== req.user.userId) {
+        if (application.volunteerId !== req.user.id) {
             return res.status(403).json({ error: 'Not authorized to cancel this application' });
         }
 

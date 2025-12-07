@@ -12,6 +12,9 @@ const app = express();
 const prisma = new PrismaClient();
 const PORT = process.env.PORT || 3000;
 
+// Trust proxy - required for rate limiting behind Render/Vercel
+app.set('trust proxy', 1);
+
 // Security: HTTP headers
 app.use(helmet());
 

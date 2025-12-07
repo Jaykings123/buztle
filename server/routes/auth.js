@@ -15,7 +15,11 @@ const authLimiter = rateLimit({
     windowMs: 15 * 60 * 1000, // 15 minutes
     max: 10, // 10 attempts per window (increased for testing)
     message: 'Too many authentication attempts, please try again later',
-    skipSuccessfulRequests: true
+    skipSuccessfulRequests: true,
+    standardHeaders: true,
+    legacyHeaders: false,
+    // Trust proxy for Render deployment
+    trustProxy: true
 });
 
 // Helper: Generate verification token

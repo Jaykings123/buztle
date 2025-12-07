@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import toast from 'react-hot-toast';
-import { FiMail, FiLock, FiUser, FiPhone, FiZap } from 'react-icons/fi';
+import { FiMail, FiLock, FiUser, FiPhone, FiZap, FiInfo, FiEye, FiEyeOff } from 'react-icons/fi';
 import { register, login } from '../api/client';
 import { useAuth } from '../context/AuthContext';
 import ParticleBackground from '../components/ParticleBackground';
@@ -13,6 +13,8 @@ const Auth = () => {
     const { login: authLogin } = useAuth();
     const [isLogin, setIsLogin] = useState(true);
     const [loading, setLoading] = useState(false);
+    const [showPassword, setShowPassword] = useState(false);
+    const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
     // Login form
     const [loginData, setLoginData] = useState({
@@ -128,8 +130,8 @@ const Auth = () => {
                             <button
                                 onClick={() => setIsLogin(true)}
                                 className={`flex-1 py-3 rounded-xl font-bold transition-all ${isLogin
-                                        ? 'bg-gradient-to-r from-cyan-500 to-blue-500 text-white'
-                                        : 'glass-morph text-gray-400 hover:text-white'
+                                    ? 'bg-gradient-to-r from-cyan-500 to-blue-500 text-white'
+                                    : 'glass-morph text-gray-400 hover:text-white'
                                     }`}
                             >
                                 Login
@@ -137,8 +139,8 @@ const Auth = () => {
                             <button
                                 onClick={() => setIsLogin(false)}
                                 className={`flex-1 py-3 rounded-xl font-bold transition-all ${!isLogin
-                                        ? 'bg-gradient-to-r from-cyan-500 to-blue-500 text-white'
-                                        : 'glass-morph text-gray-400 hover:text-white'
+                                    ? 'bg-gradient-to-r from-cyan-500 to-blue-500 text-white'
+                                    : 'glass-morph text-gray-400 hover:text-white'
                                     }`}
                             >
                                 Register
@@ -255,21 +257,66 @@ const Auth = () => {
                                     </div>
                                 </div>
 
-                                <div>
+                                <div className="relative">
                                     <label className="block text-cyan-300 mb-2 text-sm font-semibold">
                                         Password
                                     </label>
                                     <div className="relative">
                                         <FiLock className="absolute left-4 top-1/2 -translate-y-1/2 text-cyan-400" />
                                         <input
-                                            type="password"
+                                            type={showPassword ? "text" : "password"}
                                             value={registerData.password}
                                             onChange={(e) => setRegisterData({ ...registerData, password: e.target.value })}
-                                            className="w-full pl-12 pr-6 py-4 glass-morph border-2 border-cyan-500/30 rounded-xl text-white placeholder-gray-400 focus:outline-none focus:border-cyan-500 focus:shadow-[0_0_20px_rgba(6,182,212,0.3)] transition-all"
-                                            placeholder="Create password (min 6 chars)"
+                                            className="w-full pl-12 pr-24 py-4 glass-morph border-2 border-cyan-500/30 rounded-xl text-white placeholder-gray-400 focus:outline-none focus:border-cyan-500 focus:shadow-[0_0_20px_rgba(6,182,212,0.3)] transition-all"
+                                            placeholder="Create password"
                                             required
                                         />
+                                        <div className="absolute right-4 top-1/2 -translate-y-1/2 flex items-center gap-2">
+                                            <button
+                                                type="button"
+                                                onClick={() => setShowPassword(!showPassword)}
+                                                className="text-cyan-400/60 hover:text-cyan-400 transition-colors"
+                                                title={showPassword ? "Hide password" : "Show password"}
+                                            >
+                                                {showPassword ? <FiEyeOff /> : <FiEye />}
+                                            </button>
+                                            <FiInfo
+                                                className="text-cyan-400/60 cursor-help"
+                                                title="Password requirements"
+                                            />
+                                        </div>
                                     </div>
+                                    {/* Password Requirements Hint */}
+                                    {registerData.password && (
+                                        <motion.div
+                                            initial={{ opacity: 0, height: 0 }}
+                                            animate={{ opacity: 1, height: 'auto' }}
+                                            className="mt-3 p-3 glass-morph border border-cyan-500/30 rounded-lg text-xs"
+                                        >
+                                            <p className="text-cyan-400 font-semibold mb-2 flex items-center gap-2">
+                                                <FiInfo className="text-sm" />
+                                                Password Requirements:
+                                            </p>
+                                            <div className="space-y-1.5">
+                                                <div className={`flex items-center gap-2 transition-colors ${registerData.password.length >= 6 ? 'text-green-400' : 'text-gray-400'}`}>
+                                                    <span className="text-base">{registerData.password.length >= 6 ? '✓' : '○'}</span>
+                                                    <span>At least 6 characters</span>
+                                                </div>
+                                                <div className={`flex items-center gap-2 transition-colors ${/[A-Z]/.test(registerData.password) ? 'text-green-400' : 'text-gray-400'}`}>
+                                                    <span className="text-base">{/[A-Z]/.test(registerData.password) ? '✓' : '○'}</span>
+                                                    <span>One uppercase letter (A-Z)</span>
+                                                </div>
+                                                <div className={`flex items-center gap-2 transition-colors ${/[a-z]/.test(registerData.password) ? 'text-green-400' : 'text-gray-400'}`}>
+                                                    <span className="text-base">{/[a-z]/.test(registerData.password) ? '✓' : '○'}</span>
+                                                    <span>One lowercase letter (a-z)</span>
+                                                </div>
+                                                <div className={`flex items-center gap-2 transition-colors ${/\d/.test(registerData.password) ? 'text-green-400' : 'text-gray-400'}`}>
+                                                    <span className="text-base">{/\d/.test(registerData.password) ? '✓' : '○'}</span>
+                                                    <span>One number (0-9)</span>
+                                                </div>
+                                            </div>
+                                        </motion.div>
+                                    )}
                                 </div>
 
                                 <div>
@@ -279,13 +326,21 @@ const Auth = () => {
                                     <div className="relative">
                                         <FiLock className="absolute left-4 top-1/2 -translate-y-1/2 text-cyan-400" />
                                         <input
-                                            type="password"
+                                            type={showConfirmPassword ? "text" : "password"}
                                             value={registerData.confirmPassword}
                                             onChange={(e) => setRegisterData({ ...registerData, confirmPassword: e.target.value })}
-                                            className="w-full pl-12 pr-6 py-4 glass-morph border-2 border-cyan-500/30 rounded-xl text-white placeholder-gray-400 focus:outline-none focus:border-cyan-500 focus:shadow-[0_0_20px_rgba(6,182,212,0.3)] transition-all"
+                                            className="w-full pl-12 pr-14 py-4 glass-morph border-2 border-cyan-500/30 rounded-xl text-white placeholder-gray-400 focus:outline-none focus:border-cyan-500 focus:shadow-[0_0_20px_rgba(6,182,212,0.3)] transition-all"
                                             placeholder="Confirm password"
                                             required
                                         />
+                                        <button
+                                            type="button"
+                                            onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                                            className="absolute right-4 top-1/2 -translate-y-1/2 text-cyan-400/60 hover:text-cyan-400 transition-colors"
+                                            title={showConfirmPassword ? "Hide password" : "Show password"}
+                                        >
+                                            {showConfirmPassword ? <FiEyeOff /> : <FiEye />}
+                                        </button>
                                     </div>
                                 </div>
 

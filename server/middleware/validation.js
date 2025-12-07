@@ -35,8 +35,8 @@ const validationRules = {
             .trim()
             .isLength({ min: 2 })
             .withMessage('Name must be at least 2 characters long')
-            .matches(/^[a-zA-Z\s]+$/)
-            .withMessage('Name should only contain letters and spaces'),
+            .matches(/^[a-zA-Z\s.''-]+$/)
+            .withMessage('Name can only contain letters, spaces, periods, hyphens, and apostrophes'),
         body('role')
             .isIn(['ORGANIZER', 'VOLUNTEER'])
             .withMessage('Role must be either ORGANIZER or VOLUNTEER')

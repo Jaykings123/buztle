@@ -13,7 +13,7 @@ const JWT_SECRET = process.env.JWT_SECRET || 'supersecretkey';
 // Rate limits for authentication endpoints
 const authLimiter = rateLimit({
     windowMs: 15 * 60 * 1000, // 15 minutes
-    max: 5, // 5 attempts per window
+    max: 10, // 10 attempts per window (increased for testing)
     message: 'Too many authentication attempts, please try again later',
     skipSuccessfulRequests: true
 });

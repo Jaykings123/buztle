@@ -2,11 +2,14 @@ import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import toast from 'react-hot-toast';
-import { FiTrash2 } from 'react-icons/fi';
+import { FiTrash2, FiZap } from 'react-icons/fi';
 import { useAuth } from '../context/AuthContext';
 import { getEvents, getMyApplications, deleteEvent, deleteApplication } from '../api/client';
 import SearchFilter from '../components/SearchFilter';
 import SkeletonLoader from '../components/SkeletonLoader';
+import ParticleBackground from '../components/ParticleBackground';
+import TiltCard from '../components/TiltCard';
+import MagneticButton from '../components/MagneticButton';
 
 const Dashboard = () => {
     const { user, logout } = useAuth();
@@ -92,40 +95,47 @@ const Dashboard = () => {
     };
 
     return (
-        <div className="min-h-screen bg-gradient-to-br from-indigo-900 via-purple-900 to-pink-900">
+        <div className="min-h-screen bg-gradient-to-br from-slate-950 via-purple-950 to-slate-950 relative overflow-hidden">
+            {/* Particle Background */}
+            <ParticleBackground />
+
+            {/* Cyber Grid Overlay */}
+            <div className="fixed inset-0 cyber-grid opacity-10 pointer-events-none z-0"></div>
+
             {/* Header */}
-            <div className="bg-white/10 backdrop-blur-md border-b border-white/20">
+            <div className="relative z-10 glass-morph border-b border-cyan-500/20">
                 <div className="container mx-auto px-6 py-4 flex justify-between items-center">
-                    <h1 className="text-3xl font-bold text-white cursor-pointer" onClick={() => navigate('/dashboard')}>Buztle</h1>
+                    <div className="flex items-center gap-3 cursor-pointer" onClick={() => navigate('/dashboard')}>
+                        <img src="/logo.png" alt="Buztle" className="w-10 h-10" style={{ filter: 'drop-shadow(0 0 10px rgba(6,182,212,0.5))' }} />
+                        <h1 className="text-3xl font-bold holographic">Buztle</h1>
+                    </div>
                     <div className="flex items-center gap-4">
                         <span className="text-white hidden sm:inline">{user?.name}</span>
                         <span className="px-3 py-1 bg-cyan-500/20 border border-cyan-500 text-cyan-300 rounded-full text-sm">
                             {user?.role}
                         </span>
-                        <button
+                        <MagneticButton
                             onClick={handleLogout}
-                            className="px-4 py-2 bg-white/10 text-white rounded-lg hover:bg-white/20 transition"
+                            className="px-4 py-2 glass-morph border border-cyan-500/30 text-cyan-300 rounded-lg hover:border-cyan-500 transition"
                         >
                             Logout
-                        </button>
+                        </MagneticButton>
                     </div>
                 </div>
             </div>
 
-            <div className="container mx-auto px-6 py-8">
+            <div className="container mx-auto px-6 py-8 relative z-10">
                 {/* Organizer View */}
                 {user?.role === 'ORGANIZER' && (
                     <div>
                         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-8 gap-4">
-                            <h2 className="text-4xl font-bold text-white">My Events</h2>
-                            <motion.button
-                                whileHover={{ scale: 1.05 }}
-                                whileTap={{ scale: 0.95 }}
+                            <h2 className="text-4xl font-bold holographic">My Events</h2>
+                            <MagneticButton
                                 onClick={() => navigate('/create-event')}
-                                className="px-6 py-3 bg-gradient-to-r from-cyan-500 to-blue-500 text-white font-semibold rounded-xl shadow-lg"
+                                className="px-6 py-3 bg-gradient-to-r from-cyan-500 via-blue-500 to-purple-500 text-white font-bold rounded-xl shadow-lg hover:shadow-cyan-500/50 transition-all flex items-center gap-2"
                             >
-                                + Create Event
-                            </motion.button>
+                                <FiZap /> Create Event
+                            </MagneticButton>
                         </div>
 
                         <SearchFilter searchTerm={searchTerm} setSearchTerm={setSearchTerm} onSearch={handleSearch} />
@@ -173,7 +183,7 @@ const Dashboard = () => {
                             </div>
                         )}
 
-                        <h2 className="text-4xl font-bold text-white mt-16 mb-8">My Applications</h2>
+                        <h2 className="text-4xl font-bold holographic mt-16 mb-8">My Applications</h2>
                         {applications.length > 0 ? (
                             <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
                                 {applications.map((app) => (
@@ -246,8 +256,8 @@ const ApplicationCard = ({ application, onCancel }) => (
         )}
         <h3 className="text-xl font-bold text-white mb-3 pr-8">{application.event.title}</h3>
         <div className={`inline-block px-3 py-1 rounded-full text-sm font-semibold ${application.status === 'ACCEPTED' ? 'bg-green-500/20 border border-green-500 text-green-300' :
-                application.status === 'REJECTED' ? 'bg-red-500/20 border border-red-500 text-red-300' :
-                    'bg-yellow-500/20 border border-yellow-500 text-yellow-300'
+            application.status === 'REJECTED' ? 'bg-red-500/20 border border-red-500 text-red-300' :
+                'bg-yellow-500/20 border border-yellow-500 text-yellow-300'
             }`}>
             {application.status}
         </div>

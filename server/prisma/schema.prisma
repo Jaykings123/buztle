@@ -1,0 +1,47 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id          Int      @id @default(autoincrement())
+  phone       String   @unique
+  role        String   // "ORGANIZER" or "VOLUNTEER"
+  name        String?
+  photoUrl    String?
+  idCardUrl   String?
+  isVerified  Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  events      Event[]
+  applications Application[]
+}
+
+model Event {
+  id          Int      @id @default(autoincrement())
+  organizerId Int
+  organizer   User     @relation(fields: [organizerId], references: [id])
+  title       String
+  description String
+  date        String
+  time        String
+  location    String
+  payDetails  String
+  requirements String
+  status      String   @default("OPEN") // OPEN, CLOSED
+  createdAt   DateTime @default(now())
+  applications Application[]
+}
+
+model Application {
+  id          Int      @id @default(autoincrement())
+  eventId     Int
+  event       Event    @relation(fields: [eventId], references: [id])
+  volunteerId Int
+  volunteer   User     @relation(fields: [volunteerId], references: [id])
+  status      String   @default("PENDING") // PENDING, ACCEPTED, REJECTED
+  createdAt   DateTime @default(now())
+}

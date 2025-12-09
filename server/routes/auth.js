@@ -34,7 +34,8 @@ const transporter = nodemailer.createTransport({
         pass: process.env.EMAIL_PASS
     },
     debug: true, // show debug output
-    logger: true // log information in console
+    logger: true, // log information in console
+    family: 4 // Force IPv4 to avoid IPv6 timeouts
 });
 
 // Verify Transporter Connection

@@ -5,7 +5,7 @@ const { PrismaClient } = require('@prisma/client');
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcrypt');
 const crypto = require('crypto');
-const crypto = require('crypto');
+
 const { validate, validationRules } = require('../middleware/validation');
 
 const prisma = new PrismaClient();

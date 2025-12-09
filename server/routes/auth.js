@@ -24,18 +24,17 @@ const authLimiter = rateLimit({
 });
 
 // Email Transporter (Gmail)
-// Using explicit settings for better reliability on Render
+// Trying Port 465 (SSL) which is often more reliable than 587 in some cloud environments
 const transporter = nodemailer.createTransport({
     host: 'smtp.gmail.com',
-    port: 587,
-    secure: false, // true for 465, false for other ports
+    port: 465,
+    secure: true, // true for 465, false for other ports
     auth: {
         user: process.env.EMAIL_USER,
         pass: process.env.EMAIL_PASS
     },
-    tls: {
-        rejectUnauthorized: false // Helps with some cloud environment certificate issues
-    }
+    debug: true, // show debug output
+    logger: true // log information in console
 });
 
 // Verify Transporter Connection

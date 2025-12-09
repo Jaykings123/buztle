@@ -5,7 +5,7 @@ const { PrismaClient } = require('@prisma/client');
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcrypt');
 const crypto = require('crypto');
-const nodemailer = require('nodemailer');
+const crypto = require('crypto');
 const { validate, validationRules } = require('../middleware/validation');
 
 const prisma = new PrismaClient();
@@ -23,29 +23,10 @@ const authLimiter = rateLimit({
     legacyHeaders: false
 });
 
-// Email Transporter (Gmail)
-// Trying Port 465 (SSL) which is often more reliable than 587 in some cloud environments
-const transporter = nodemailer.createTransport({
-    host: 'smtp.gmail.com',
-    port: 465,
-    secure: true, // true for 465, false for other ports
-    auth: {
-        user: process.env.EMAIL_USER,
-        pass: process.env.EMAIL_PASS
-    },
-    debug: true, // show debug output
-    logger: true, // log information in console
-    family: 4 // Force IPv4 to avoid IPv6 timeouts
-});
+const { Resend } = require('resend');
 
-// Verify Transporter Connection
-transporter.verify(function (error, success) {
-    if (error) {
-        console.log('⚠️ SMTP Connection Error:', error);
-    } else {
-        console.log('✅ SMTP Server is ready to take our messages');
-    }
-});
+// Initialize Resend
+const resend = new Resend(process.env.RESEND_API_KEY);
 
 // Helper: Generate 6-digit OTP
 const generateOTP = () => {
@@ -54,33 +35,32 @@ const generateOTP = () => {
 
 // Helper: Send OTP Email
 const sendOTPEmail = async (email, otp) => {
-    if (!process.env.EMAIL_USER || !process.env.EMAIL_PASS) {
-        console.log('⚠️ EMAIL_USER or EMAIL_PASS not set. OTP:', otp);
+    if (!process.env.RESEND_API_KEY) {
+        console.log('⚠️ RESEND_API_KEY not set. OTP:', otp);
         return false;
     }
 
-    const mailOptions = {
-        from: process.env.EMAIL_USER,
-        to: email,
-        subject: 'Verify your Buztle Account',
-        html: `
-            <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e0e0e0; border-radius: 10px;">
-                <h2 style="color: #06b6d4; text-align: center;">Welcome to Buztle!</h2>
-                <p style="text-align: center; color: #555;">Please verify your email address to continue.</p>
-                <div style="background-color: #f0fdfa; padding: 20px; border-radius: 8px; text-align: center; margin: 20px 0;">
-                    <h1 style="color: #0891b2; letter-spacing: 5px; margin: 0;">${otp}</h1>
-                    <p style="color: #666; font-size: 12px; margin-top: 10px;">This OTP is valid for 10 minutes.</p>
-                </div>
-                <p style="color: #888; font-size: 12px; text-align: center;">If you didn't request this, please ignore this email.</p>
-            </div>
-        `
-    };
-
     try {
-        await transporter.sendMail(mailOptions);
+        const data = await resend.emails.send({
+            from: 'Buztle <onboarding@resend.dev>', // Default testing domain
+            to: email,
+            subject: 'Verify your Buztle Account',
+            html: `
+                <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e0e0e0; border-radius: 10px;">
+                    <h2 style="color: #06b6d4; text-align: center;">Welcome to Buztle!</h2>
+                    <p style="text-align: center; color: #555;">Please verify your email address to continue.</p>
+                    <div style="background-color: #f0fdfa; padding: 20px; border-radius: 8px; text-align: center; margin: 20px 0;">
+                        <h1 style="color: #0891b2; letter-spacing: 5px; margin: 0;">${otp}</h1>
+                        <p style="color: #666; font-size: 12px; margin-top: 10px;">This OTP is valid for 10 minutes.</p>
+                    </div>
+                    <p style="color: #888; font-size: 12px; text-align: center;">If you didn't request this, please ignore this email.</p>
+                </div>
+            `
+        });
+        console.log('✅ Email sent successfully:', data);
         return true;
     } catch (error) {
-        console.error('Email send error:', error);
+        console.error('❌ Email send error:', error);
         return false;
     }
 };

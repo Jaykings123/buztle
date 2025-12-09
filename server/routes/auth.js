@@ -5,6 +5,7 @@ const { PrismaClient } = require('@prisma/client');
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcrypt');
 const crypto = require('crypto');
+const nodemailer = require('nodemailer');
 const { validate, validationRules } = require('../middleware/validation');
 
 const prisma = new PrismaClient();
@@ -18,28 +19,55 @@ const authLimiter = rateLimit({
     skipSuccessfulRequests: true,
     standardHeaders: true,
     legacyHeaders: false,
-    // Trust proxy for Render deployment
-    trustProxy: true
+    standardHeaders: true,
+    legacyHeaders: false
 });
 
-// Helper: Generate verification token
-const generateVerificationToken = () => {
-    return crypto.randomBytes(32).toString('hex');
+// Email Transporter (Gmail)
+const transporter = nodemailer.createTransport({
+    service: 'gmail',
+    auth: {
+        user: process.env.EMAIL_USER,
+        pass: process.env.EMAIL_PASS
+    }
+});
+
+// Helper: Generate 6-digit OTP
+const generateOTP = () => {
+    return Math.floor(100000 + Math.random() * 900000).toString();
 };
 
-// Helper: Send verification email (mock for now, can integrate with nodemailer)
-const sendVerificationEmail = async (email, token) => {
-    // TODO: Integrate with actual email service (nodemailer, SendGrid, etc.)
-    const verificationLink = `${process.env.FRONTEND_URL || 'http://localhost:5173'}/verify-email?token=${token}`;
-    console.log(`
-    ========================================
-    VERIFICATION EMAIL (Mock)
-    To: ${email}
-    Link: ${verificationLink}
-    ========================================
-    `);
-    // For now, just log the link. In production, send actual email.
-    return true;
+// Helper: Send OTP Email
+const sendOTPEmail = async (email, otp) => {
+    if (!process.env.EMAIL_USER || !process.env.EMAIL_PASS) {
+        console.log('⚠️ EMAIL_USER or EMAIL_PASS not set. OTP:', otp);
+        return false;
+    }
+
+    const mailOptions = {
+        from: process.env.EMAIL_USER,
+        to: email,
+        subject: 'Verify your Buztle Account',
+        html: `
+            <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e0e0e0; border-radius: 10px;">
+                <h2 style="color: #06b6d4; text-align: center;">Welcome to Buztle!</h2>
+                <p style="text-align: center; color: #555;">Please verify your email address to continue.</p>
+                <div style="background-color: #f0fdfa; padding: 20px; border-radius: 8px; text-align: center; margin: 20px 0;">
+                    <h1 style="color: #0891b2; letter-spacing: 5px; margin: 0;">${otp}</h1>
+                    <p style="color: #666; font-size: 12px; margin-top: 10px;">This OTP is valid for 10 minutes.</p>
+                </div>
+                <p style="color: #888; font-size: 12px; text-align: center;">If you didn't request this, please ignore this email.</p>
+            </div>
+        `
+    };
+
+    try {
+        await transporter.sendMail(mailOptions);
+        return true;
+    } catch (error) {
+        console.error('Email send error:', error);
+        return false;
+    }
 };
 
 // Register with Email/Password
@@ -68,7 +96,12 @@ router.post('/register', validationRules.register, validate, async (req, res, ne
         // Hash password
         const hashedPassword = await bcrypt.hash(password, 10);
 
-        // Create user (email verified by default - no verification needed)
+        // Generate OTP
+        const otp = generateOTP();
+        const otpExpires = Date.now() + 10 * 60 * 1000; // 10 minutes
+        const tokenWithExpiry = `${otp}|${otpExpires}`;
+
+        // Create user (NOT verified yet)
         const user = await prisma.user.create({
             data: {
                 phone,
@@ -77,25 +110,18 @@ router.post('/register', validationRules.register, validate, async (req, res, ne
                 name,
                 role,
                 isVerified: false,
-                emailVerified: true, // Auto-verify for now
-                verificationToken: null
+                emailVerified: false,
+                verificationToken: tokenWithExpiry
             }
         });
 
-        // Generate JWT
-        const token = jwt.sign({ id: user.id, role: user.role }, JWT_SECRET);
+        // Send OTP Email
+        await sendOTPEmail(email, otp);
 
         res.json({
-            token,
-            user: {
-                id: user.id,
-                phone: user.phone,
-                email: user.email,
-                name: user.name,
-                role: user.role,
-                emailVerified: user.emailVerified
-            },
-            message: 'Registration successful! You can now login.'
+            message: 'Registration successful! Please verify your email.',
+            email: user.email,
+            requiresVerification: true
         });
     } catch (error) {
         next(error); // Pass to error handler
@@ -127,6 +153,15 @@ router.post('/login', authLimiter, validationRules.login, validate, async (req, 
             return res.status(400).json({ error: 'Invalid credentials' });
         }
 
+        // Check verification
+        if (!user.emailVerified) {
+            return res.status(403).json({
+                error: 'Email not verified',
+                requiresVerification: true,
+                email: user.email
+            });
+        }
+
         // Generate JWT
         const token = jwt.sign({ id: user.id, role: user.role }, JWT_SECRET);
 
@@ -146,25 +181,41 @@ router.post('/login', authLimiter, validationRules.login, validate, async (req, 
     }
 });
 
-// Verify Email
-router.get('/verify-email', async (req, res) => {
-    const { token } = req.query;
+// Verify OTP
+router.post('/verify-otp', async (req, res) => {
+    const { email, otp } = req.body;
 
-    if (!token) {
-        return res.status(400).json({ error: 'Verification token required' });
+    if (!email || !otp) {
+        return res.status(400).json({ error: 'Email and OTP are required' });
     }
 
     try {
-        const user = await prisma.user.findFirst({
-            where: { verificationToken: token }
-        });
+        const user = await prisma.user.findUnique({ where: { email } });
 
         if (!user) {
-            return res.status(400).json({ error: 'Invalid or expired verification token' });
+            return res.status(400).json({ error: 'User not found' });
         }
 
-        // Update user
-        await prisma.user.update({
+        if (user.emailVerified) {
+            return res.status(400).json({ error: 'Email already verified' });
+        }
+
+        if (!user.verificationToken) {
+            return res.status(400).json({ error: 'No verification pending' });
+        }
+
+        const [storedOtp, expiry] = user.verificationToken.split('|');
+
+        if (storedOtp !== otp) {
+            return res.status(400).json({ error: 'Invalid OTP' });
+        }
+
+        if (Date.now() > parseInt(expiry)) {
+            return res.status(400).json({ error: 'OTP expired' });
+        }
+
+        // Verify user
+        const updatedUser = await prisma.user.update({
             where: { id: user.id },
             data: {
                 emailVerified: true,
@@ -172,15 +223,30 @@ router.get('/verify-email', async (req, res) => {
             }
         });
 
-        res.json({ success: true, message: 'Email verified successfully! You can now login.' });
+        // Generate JWT
+        const token = jwt.sign({ id: updatedUser.id, role: updatedUser.role }, JWT_SECRET);
+
+        res.json({
+            success: true,
+            message: 'Email verified successfully!',
+            token,
+            user: {
+                id: updatedUser.id,
+                phone: updatedUser.phone,
+                email: updatedUser.email,
+                name: updatedUser.name,
+                role: updatedUser.role,
+                emailVerified: updatedUser.emailVerified
+            }
+        });
     } catch (error) {
         console.error('Verification error:', error);
         res.status(500).json({ error: 'Verification failed' });
     }
 });
 
-// Resend verification email
-router.post('/resend-verification', async (req, res) => {
+// Resend OTP
+router.post('/resend-otp', async (req, res) => {
     const { email } = req.body;
 
     if (!email) {
@@ -198,20 +264,24 @@ router.post('/resend-verification', async (req, res) => {
             return res.status(400).json({ error: 'Email already verified' });
         }
 
-        // Generate new token
-        const verificationToken = generateVerificationToken();
+        // Generate new OTP
+        const otp = generateOTP();
+        const otpExpires = Date.now() + 10 * 60 * 1000;
+        const tokenWithExpiry = `${otp}|${otpExpires}`;
 
         await prisma.user.update({
             where: { id: user.id },
-            data: { verificationToken }
+            data: {
+                verificationToken: tokenWithExpiry
+            }
         });
 
-        await sendVerificationEmail(email, verificationToken);
+        await sendOTPEmail(email, otp);
 
-        res.json({ success: true, message: 'Verification email sent!' });
+        res.json({ success: true, message: 'New OTP sent!' });
     } catch (error) {
-        console.error('Resend verification error:', error);
-        res.status(500).json({ error: 'Failed to resend verification email' });
+        console.error('Resend OTP error:', error);
+        res.status(500).json({ error: 'Failed to resend OTP' });
     }
 });
 

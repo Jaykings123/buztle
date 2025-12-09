@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import toast from 'react-hot-toast';
 import { FiMail, FiLock, FiUser, FiPhone, FiZap, FiInfo, FiEye, FiEyeOff } from 'react-icons/fi';
-import { register, login } from '../api/client';
+import { register, login, verifyOtp, resendOtp } from '../api/client';
 import { useAuth } from '../context/AuthContext';
 import ParticleBackground from '../components/ParticleBackground';
 import MagneticButton from '../components/MagneticButton';
@@ -15,6 +15,11 @@ const Auth = () => {
     const [loading, setLoading] = useState(false);
     const [showPassword, setShowPassword] = useState(false);
     const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+
+    // OTP Verification State
+    const [showOtpInput, setShowOtpInput] = useState(false);
+    const [otp, setOtp] = useState('');
+    const [verificationEmail, setVerificationEmail] = useState('');
 
     // Login form
     const [loginData, setLoginData] = useState({
@@ -74,12 +79,42 @@ const Auth = () => {
                 password: registerData.password,
                 role: registerData.role
             });
-            toast.success(res.data.message || 'Registration successful! Please check your email to verify your account.');
-            setIsLogin(true); // Switch to login view
+
+            if (res.data.requiresVerification) {
+                setVerificationEmail(res.data.email);
+                setShowOtpInput(true);
+                toast.success('Registration successful! Please check your email for OTP.');
+            } else {
+                toast.success('Registration successful! Please login.');
+                setIsLogin(true);
+            }
         } catch (err) {
             toast.error(err.response?.data?.error || 'Registration failed');
         }
         setLoading(false);
+    };
+
+    const handleVerifyOtp = async (e) => {
+        e.preventDefault();
+        setLoading(true);
+        try {
+            const res = await verifyOtp({ email: verificationEmail, otp });
+            toast.success('Email verified successfully!');
+            authLogin(res.data.token, res.data.user);
+            navigate('/dashboard');
+        } catch (err) {
+            toast.error(err.response?.data?.error || 'Verification failed');
+        }
+        setLoading(false);
+    };
+
+    const handleResendOtp = async () => {
+        try {
+            await resendOtp({ email: verificationEmail });
+            toast.success('OTP resent successfully!');
+        } catch (err) {
+            toast.error('Failed to resend OTP');
+        }
     };
 
     return (
@@ -110,7 +145,7 @@ const Auth = () => {
                             className="w-24 h-24 mx-auto mb-4 drop-shadow-2xl floating"
                             style={{ filter: 'drop-shadow(0 0 20px rgba(6, 182, 212, 0.5))' }}
                         />
-                        <h1 className="text-4xl font-bold holographic mb-2">
+                        <h1 className="text-3xl md:text-4xl font-bold holographic mb-2">
                             Welcome to Buztle
                         </h1>
                         <p className="text-cyan-300 text-sm neon-glow">
@@ -123,32 +158,85 @@ const Auth = () => {
                         initial={{ opacity: 0, scale: 0.9 }}
                         animate={{ opacity: 1, scale: 1 }}
                         transition={{ delay: 0.3, duration: 0.6 }}
-                        className="glass-morph p-10 rounded-3xl neon-border"
+                        className="glass-morph p-6 md:p-10 rounded-3xl neon-border"
                     >
-                        {/* Toggle Buttons */}
-                        <div className="flex gap-4 mb-8">
-                            <button
-                                onClick={() => setIsLogin(true)}
-                                className={`flex-1 py-3 rounded-xl font-bold transition-all ${isLogin
-                                    ? 'bg-gradient-to-r from-cyan-500 to-blue-500 text-white'
-                                    : 'glass-morph text-gray-400 hover:text-white'
-                                    }`}
-                            >
-                                Login
-                            </button>
-                            <button
-                                onClick={() => setIsLogin(false)}
-                                className={`flex-1 py-3 rounded-xl font-bold transition-all ${!isLogin
-                                    ? 'bg-gradient-to-r from-cyan-500 to-blue-500 text-white'
-                                    : 'glass-morph text-gray-400 hover:text-white'
-                                    }`}
-                            >
-                                Register
-                            </button>
-                        </div>
+                        {/* Toggle Buttons (Hidden when verifying OTP) */}
+                        {!showOtpInput && (
+                            <div className="flex gap-4 mb-8">
+                                <button
+                                    onClick={() => setIsLogin(true)}
+                                    className={`flex-1 py-3 rounded-xl font-bold transition-all ${isLogin
+                                        ? 'bg-gradient-to-r from-cyan-500 to-blue-500 text-white'
+                                        : 'glass-morph text-gray-400 hover:text-white'
+                                        }`}
+                                >
+                                    Login
+                                </button>
+                                <button
+                                    onClick={() => setIsLogin(false)}
+                                    className={`flex-1 py-3 rounded-xl font-bold transition-all ${!isLogin
+                                        ? 'bg-gradient-to-r from-cyan-500 to-blue-500 text-white'
+                                        : 'glass-morph text-gray-400 hover:text-white'
+                                        }`}
+                                >
+                                    Register
+                                </button>
+                            </div>
+                        )}
 
-                        {/* Login Form */}
-                        {isLogin ? (
+                        {/* OTP Verification Form */}
+                        {showOtpInput ? (
+                            <motion.form
+                                initial={{ opacity: 0, scale: 0.9 }}
+                                animate={{ opacity: 1, scale: 1 }}
+                                onSubmit={handleVerifyOtp}
+                                className="space-y-6"
+                            >
+                                <div className="text-center mb-6">
+                                    <h3 className="text-xl font-bold text-white mb-2">Verify Email</h3>
+                                    <p className="text-cyan-300 text-sm">
+                                        Enter the 6-digit OTP sent to {verificationEmail}
+                                    </p>
+                                </div>
+
+                                <div>
+                                    <label className="block text-cyan-300 mb-2 text-sm font-semibold">
+                                        One-Time Password
+                                    </label>
+                                    <div className="relative">
+                                        <FiLock className="absolute left-4 top-1/2 -translate-y-1/2 text-cyan-400" />
+                                        <input
+                                            type="text"
+                                            value={otp}
+                                            onChange={(e) => setOtp(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                                            className="w-full pl-12 pr-6 py-4 glass-morph border-2 border-cyan-500/30 rounded-xl text-white placeholder-gray-400 focus:outline-none focus:border-cyan-500 focus:shadow-[0_0_20px_rgba(6,182,212,0.3)] transition-all text-center tracking-[0.5em] text-xl"
+                                            placeholder="••••••"
+                                            required
+                                            maxLength={6}
+                                        />
+                                    </div>
+                                </div>
+
+                                <MagneticButton
+                                    type="submit"
+                                    disabled={loading || otp.length !== 6}
+                                    className="w-full py-4 bg-gradient-to-r from-cyan-500 via-blue-500 to-purple-500 text-white font-bold rounded-xl shadow-lg hover:shadow-cyan-500/50 transition-all disabled:opacity-50 flex items-center justify-center gap-2"
+                                >
+                                    <FiZap />
+                                    {loading ? 'Verifying...' : 'Verify Email'}
+                                </MagneticButton>
+
+                                <div className="text-center">
+                                    <button
+                                        type="button"
+                                        onClick={handleResendOtp}
+                                        className="text-cyan-400 hover:text-white text-sm transition-colors"
+                                    >
+                                        Resend OTP
+                                    </button>
+                                </div>
+                            </motion.form>
+                        ) : isLogin ? (
                             <motion.form
                                 initial={{ opacity: 0, x: -20 }}
                                 animate={{ opacity: 1, x: 0 }}

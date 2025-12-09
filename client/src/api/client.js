@@ -18,7 +18,9 @@ api.interceptors.request.use((config) => {
 
 // Auth
 export const register = (data) => api.post('/auth/register', data);
-export const login = (identifier, password) => api.post('/auth/login', { identifier, password });
+export const login = (data) => api.post('/auth/login', data);
+export const verifyOtp = (data) => api.post('/auth/verify-otp', data);
+export const resendOtp = (data) => api.post('/auth/resend-otp', data);
 export const verifyEmail = (token) => api.get(`/auth/verify-email?token=${token}`);
 export const resendVerification = (email) => api.post('/auth/resend-verification', { email });
 

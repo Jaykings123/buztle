@@ -64,7 +64,7 @@ const Landing = () => {
                         initial={{ opacity: 0, scale: 0.5 }}
                         animate={{ opacity: 1, scale: 1 }}
                         transition={{ delay: 0.3, duration: 0.8 }}
-                        className="text-7xl md:text-9xl font-bold mb-6 holographic"
+                        className="text-5xl md:text-7xl lg:text-9xl font-bold mb-6 holographic"
                         style={{ fontFamily: 'system-ui, -apple-system, sans-serif', fontWeight: 900 }}
                     >
                         Buztle
@@ -116,7 +116,7 @@ const Landing = () => {
                     whileInView={{ opacity: 1, y: 0 }}
                     viewport={{ once: true }}
                     transition={{ duration: 0.8 }}
-                    className="grid md:grid-cols-3 gap-8 mt-32"
+                    className="grid grid-cols-1 md:grid-cols-3 gap-8 mt-20 md:mt-32"
                 >
                     <TiltCard
                         icon={<FiCalendar className="text-6xl" />}
@@ -161,14 +161,14 @@ const Landing = () => {
                     transition={{ duration: 0.8 }}
                     className="mt-40"
                 >
-                    <h2 className="text-5xl md:text-7xl font-bold text-center mb-20 holographic">
+                    <h2 className="text-4xl md:text-5xl lg:text-7xl font-bold text-center mb-12 md:mb-20 holographic">
                         Meet the Visionary
                     </h2>
 
                     {/* Founder Card with 3D Effect */}
                     <motion.div
                         whileHover={{ scale: 1.02 }}
-                        className="max-w-5xl mx-auto glass-morph p-12 rounded-3xl neon-border transform-3d"
+                        className="max-w-5xl mx-auto glass-morph p-6 md:p-12 rounded-3xl neon-border transform-3d"
                     >
                         <div className="flex flex-col md:flex-row items-center gap-12">
                             <motion.div

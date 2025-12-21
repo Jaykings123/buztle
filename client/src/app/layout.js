@@ -11,6 +11,10 @@ const inter = Inter({
 export const metadata = {
   title: "Buztle - Event Management & Volunteer Networking",
   description: "Connect with opportunities, manage events, and build your volunteer network with Buztle.",
+  icons: {
+    icon: "/logo.png",
+    apple: "/logo.png",
+  },
 };
 
 // Theme initialization script - runs before React hydrates

@@ -1,22 +1,36 @@
 'use client';
-import React, { useRef } from 'react';
+import React, { useRef, useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@clerk/nextjs';
-import { motion, useScroll, useTransform } from 'framer-motion';
-import { FiUsers, FiCalendar, FiDollarSign, FiCheckCircle, FiMail, FiLinkedin, FiGithub, FiArrowRight, FiZap } from 'react-icons/fi';
+import { motion, useScroll, useTransform, AnimatePresence } from 'framer-motion';
+import { FiUsers, FiCalendar, FiDollarSign, FiCheckCircle, FiMail, FiLinkedin, FiGithub, FiArrowRight, FiArrowUp, FiZap } from 'react-icons/fi';
 import ThemeToggle from '@/components/ThemeToggle';
 
 export default function Home() {
   const router = useRouter();
   const { isSignedIn } = useAuth();
   const aboutRef = useRef(null);
+  const [showScrollTop, setShowScrollTop] = useState(false);
 
   const { scrollYProgress } = useScroll();
   const yPosAnim = useTransform(scrollYProgress, [0, 1], [0, -50]);
   const opacityAnim = useTransform(scrollYProgress, [0, 0.3], [1, 0]);
 
+  // Show scroll-to-top button when scrolled down
+  useEffect(() => {
+    const handleScroll = () => {
+      setShowScrollTop(window.scrollY > 400);
+    };
+    window.addEventListener('scroll', handleScroll);
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
+
   const scrollToAbout = () => {
     aboutRef.current?.scrollIntoView({ behavior: 'smooth' });
+  };
+
+  const scrollToTop = () => {
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   return (
@@ -46,13 +60,13 @@ export default function Home() {
       </motion.nav>
 
       {/* Hero Section */}
-      <section className="min-h-screen flex items-center justify-center pt-24 sm:pt-20 pb-16 px-4 sm:px-6">
+      <section className="min-h-screen flex flex-col items-center justify-center pt-24 sm:pt-20 pb-8 px-4 sm:px-6">
         <motion.div
           initial={{ opacity: 0, y: 50 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.8, ease: "easeOut" }}
           style={{ y: yPosAnim, opacity: opacityAnim }}
-          className="text-center max-w-5xl mx-auto"
+          className="text-center max-w-5xl mx-auto flex-1 flex flex-col justify-center"
         >
           {/* Logo */}
           <motion.div
@@ -120,24 +134,6 @@ export default function Home() {
               Learn More
             </button>
           </motion.div>
-        </motion.div>
-
-        {/* Scroll Indicator */}
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ delay: 1.2, duration: 0.6 }}
-          className="scroll-indicator cursor-pointer"
-          onClick={scrollToAbout}
-        >
-          <div className="w-6 h-10 rounded-full border-2 flex justify-center pt-2" style={{ borderColor: 'var(--border-medium)' }}>
-            <motion.div
-              animate={{ y: [0, 8, 0] }}
-              transition={{ duration: 1.5, repeat: Infinity }}
-              className="w-1.5 h-1.5 rounded-full"
-              style={{ backgroundColor: 'var(--accent-primary)' }}
-            />
-          </div>
         </motion.div>
       </section>
 
@@ -287,6 +283,29 @@ export default function Home() {
           </div>
         </div>
       </footer>
+
+      {/* Scroll to Top Button */}
+      <AnimatePresence>
+        {showScrollTop && (
+          <motion.button
+            initial={{ opacity: 0, scale: 0.8 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.8 }}
+            transition={{ duration: 0.2 }}
+            onClick={scrollToTop}
+            className="fixed bottom-6 right-6 w-12 h-12 rounded-full flex items-center justify-center shadow-lg z-50"
+            style={{
+              backgroundColor: 'var(--accent-primary)',
+              color: 'white',
+            }}
+            whileHover={{ scale: 1.1 }}
+            whileTap={{ scale: 0.9 }}
+            aria-label="Scroll to top"
+          >
+            <FiArrowUp className="text-xl" />
+          </motion.button>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

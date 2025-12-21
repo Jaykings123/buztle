@@ -1,13 +1,13 @@
 const express = require('express');
 const router = express.Router();
 const { PrismaClient } = require('@prisma/client');
-const authenticateToken = require('../middleware/auth');
+const { requireAuth } = require('../middleware/auth');
 const { validate, validationRules } = require('../middleware/validation');
 
 const prisma = new PrismaClient();
 
 // Create Event (Organizer only)
-router.post('/', authenticateToken, validationRules.createEvent, validate, async (req, res, next) => {
+router.post('/', requireAuth, validationRules.createEvent, validate, async (req, res, next) => {
     if (req.user.role !== 'ORGANIZER') {
         return res.status(403).json({ error: 'Only organizers can create events' });
     }
@@ -30,7 +30,36 @@ router.post('/', authenticateToken, validationRules.createEvent, validate, async
         });
         res.json(event);
     } catch (error) {
-        next(error);
+        console.error("Error creating event:", error);
+        res.status(500).json({ error: 'Failed to create event', details: error.message });
+    }
+});
+
+// Get Organizer's Events (Optimized with Applications)
+router.get('/my-events', requireAuth, async (req, res) => {
+    if (req.user.role !== 'ORGANIZER') {
+        return res.status(403).json({ error: 'Access denied' });
+    }
+
+    try {
+        const events = await prisma.event.findMany({
+            where: { organizerId: req.user.id },
+            include: {
+                organizer: { select: { name: true, photoUrl: true, clerkId: true } },
+                applications: {
+                    include: { volunteer: true },
+                    orderBy: { createdAt: 'desc' }
+                },
+                _count: {
+                    select: { applications: { where: { status: 'ACCEPTED' } } }
+                }
+            },
+            orderBy: { createdAt: 'desc' }
+        });
+        res.json(events);
+    } catch (error) {
+        console.error("Error fetching my events:", error);
+        res.status(500).json({ error: 'Failed to fetch your events' });
     }
 });
 
@@ -39,7 +68,12 @@ router.get('/', async (req, res) => {
     try {
         const events = await prisma.event.findMany({
             where: { status: 'OPEN' },
-            include: { organizer: { select: { name: true, photoUrl: true } } },
+            include: {
+                organizer: { select: { name: true, photoUrl: true, clerkId: true } },
+                _count: {
+                    select: { applications: { where: { status: 'ACCEPTED' } } }
+                }
+            },
             orderBy: { createdAt: 'desc' }
         });
         res.json(events);
@@ -55,7 +89,12 @@ router.get('/:id', async (req, res) => {
     try {
         const event = await prisma.event.findUnique({
             where: { id: parseInt(id) },
-            include: { organizer: { select: { name: true, photoUrl: true } } }
+            include: {
+                organizer: { select: { name: true, photoUrl: true } },
+                _count: {
+                    select: { applications: { where: { status: 'ACCEPTED' } } }
+                }
+            }
         });
         if (!event) return res.status(404).json({ error: 'Event not found' });
         res.json(event);
@@ -66,7 +105,7 @@ router.get('/:id', async (req, res) => {
 });
 
 // Cancel/Delete Event (Organizer only)
-router.delete('/:id', authenticateToken, async (req, res) => {
+router.delete('/:id', requireAuth, async (req, res) => {
     if (req.user.role !== 'ORGANIZER') {
         return res.status(403).json({ error: 'Only organizers can cancel events' });
     }

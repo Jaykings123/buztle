@@ -5,19 +5,21 @@ generator client {
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
 }
 
 model User {
   id                 Int      @id @default(autoincrement())
-  phone              String   @unique
+  clerkId            String   @unique // Link to Clerk
+  phone              String?  @unique // Optional now, managed by Clerk
   email              String   @unique
-  password           String
-  role               String   // "ORGANIZER" or "VOLUNTEER"
+  password           String?  // Optional, managed by Clerk
+  role               String?  @default("VOLUNTEER") // "ORGANIZER" or "VOLUNTEER"
   name               String?
   photoUrl           String?
   idCardUrl          String?
   isVerified         Boolean  @default(false)
-  emailVerified      Boolean  @default(false)
+  emailVerified      Boolean  @default(true) // Handled by Clerk
   verificationToken  String?
   createdAt          DateTime @default(now())
   events             Event[]

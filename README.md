@@ -80,12 +80,12 @@
 
 ### Frontend
 
-- **React 19.2** - UI library
-- **Vite** - Build tool & dev server
-- **TailwindCSS** - Utility-first CSS
+- **Next.js 16** - React Framework
+- **React 19** - UI Library
+- **TailwindCSS 4** - Utility-first CSS
 - **Framer Motion** - Animations
-- **React Router DOM** - Client-side routing
-- **Axios** - HTTP client
+- **React Query** - Server State Management
+- **Clerk** - Authentication
 - **React Hot Toast** - Notifications
 
 ### Backend
@@ -94,7 +94,7 @@
 - **Express.js** - Web framework
 - **Prisma ORM** - Database toolkit
 - **PostgreSQL** (Supabase) - Database
-- **JWT** - Authentication
+- **JWT** (Legacy/Optional) - Authentication
 - **Bcrypt** - Password hashing
 - **Express Validator** - Input validation
 - **Helmet.js** - Security headers
@@ -113,52 +113,23 @@
 
 ```
 Buztle/
-├── client/                    # Frontend React application
+├── client/                    # Frontend Next.js application (Port 3001)
 │   ├── public/               # Static assets
-│   │   ├── buztle-logo.png
-│   │   ├── jaykiramgami.jpg
-│   │   └── vite.svg
 │   ├── src/
-│   │   ├── api/              # API client
-│   │   │   └── client.js
+│   │   ├── app/              # App Router pages
 │   │   ├── components/       # Reusable UI components
-│   │   │   ├── MagneticButton.jsx
-│   │   │   ├── TiltCard.jsx
-│   │   │   ├── ParticleBackground.jsx
-│   │   │   ├── SearchFilter.jsx
-│   │   │   ├── SkeletonLoader.jsx
-│   │   │   └── ToastContainer.jsx
-│   │   ├── context/          # React context
-│   │   │   └── AuthContext.jsx
-│   │   ├── pages/            # Page components
-│   │   │   ├── Landing.jsx
-│   │   │   ├── Auth.jsx
-│   │   │   ├── Dashboard.jsx
-│   │   │   ├── CreateEvent.jsx
-│   │   │   └── EventDetails.jsx
-│   │   ├── App.jsx           # Main app component
-│   │   ├── index.css         # Global styles
-│   │   └── main.jsx          # Entry point
-│   ├── .env.example          # Environment template
-│   ├── package.json
-│   └── vite.config.js
+│   │   ├── lib/              # Utilities and API clients
+│   │   ├── hooks/            # Custom hooks
+│   │   └── providers/        # Context providers
+│   ├── .env.local            # Environment variables
+│   └── package.json
 │
-├── server/                   # Backend Node.js application
+├── server/                   # Backend Node.js application (Port 3000)
 │   ├── middleware/           # Custom middleware
-│   │   ├── auth.js           # JWT authentication
-│   │   ├── errorHandler.js   # Centralized error handling
-│   │   └── validation.js     # Input validation rules
-│   ├── prisma/              # Database schema & migrations
-│   │   ├── schema.prisma
-│   │   └── dev.db            # Local SQLite (dev only)
-│   ├── routes/              # API routes
-│   │   ├── auth.js          # Authentication endpoints
-│   │   ├── events.js        # Event management
-│   │   └── applications.js  # Application management
-│   ├── .env.example         # Environment template
-│   ├── server.js            # Express server
-│   ├── package.json
-│   └── test-e2e.js          # End-to-end tests
+│   ├── prisma/               # Database schema
+│   ├── routes/               # API routes
+│   ├── .env                  # Environment variables
+│   └── server.js             # Express server
 │
 ├── .gitignore
 └── README.md                 # This file
@@ -223,13 +194,15 @@ FRONTEND_URL=http://localhost:5173
 
 ```bash
 cd client
-cp .env.example .env
+cp .env.example .env.local
 ```
 
-2. Update `.env`:
+2. Update `.env.local` with your Clerk keys:
 
 ```env
-VITE_API_URL=http://localhost:3000/api
+NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=pk_test_your-key
+CLERK_SECRET_KEY=sk_test_your-key
+NEXT_PUBLIC_API_URL=http://localhost:3000/api
 ```
 
 ### Database Setup
@@ -268,7 +241,7 @@ npm run dev
 ```bash
 cd client
 npm run dev
-# Client runs on http://localhost:5173
+# Client runs on http://localhost:3001
 ```
 
 ### Production Build
@@ -410,9 +383,12 @@ Response:
 ### Frontend (Vercel)
 
 1. **Connect GitHub repository to Vercel**
-2. **Set environment variables:**
-   - `VITE_API_URL` = `https://your-backend-url.render.com/api`
-3. **Deploy**: Vercel auto-deploys on push to `main`
+2. **Set root directory to `client`**
+3. **Set environment variables:**
+   - `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` = your Clerk publishable key
+   - `CLERK_SECRET_KEY` = your Clerk secret key
+   - `NEXT_PUBLIC_API_URL` = `https://your-backend-url.render.com/api`
+4. **Deploy**: Vercel auto-deploys on push to `main`
 
 ### Backend (Render)
 

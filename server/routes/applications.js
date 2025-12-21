@@ -1,13 +1,13 @@
 const express = require('express');
 const router = express.Router();
 const { PrismaClient } = require('@prisma/client');
-const authenticateToken = require('../middleware/auth');
+const { requireAuth } = require('../middleware/auth');
 const { validate, validationRules } = require('../middleware/validation');
 
 const prisma = new PrismaClient();
 
 // Apply for Event (Volunteer only)
-router.post('/', authenticateToken, validationRules.createApplication, validate, async (req, res, next) => {
+router.post('/', requireAuth, validationRules.createApplication, validate, async (req, res, next) => {
     if (req.user.role !== 'VOLUNTEER') {
         return res.status(403).json({ error: 'Only volunteers can apply' });
     }
@@ -42,7 +42,7 @@ router.post('/', authenticateToken, validationRules.createApplication, validate,
 });
 
 // Get My Applications (Volunteer)
-router.get('/my-applications', authenticateToken, async (req, res) => {
+router.get('/my-applications', requireAuth, async (req, res) => {
     try {
         const applications = await prisma.application.findMany({
             where: { volunteerId: req.user.id },
@@ -57,7 +57,7 @@ router.get('/my-applications', authenticateToken, async (req, res) => {
 });
 
 // Get Applications for Event (Organizer)
-router.get('/event/:eventId', authenticateToken, async (req, res) => {
+router.get('/event/:eventId', requireAuth, async (req, res) => {
     const { eventId } = req.params;
 
     try {
@@ -82,7 +82,7 @@ router.get('/event/:eventId', authenticateToken, async (req, res) => {
 });
 
 // Update Application Status (Organizer)
-router.patch('/:id', authenticateToken, validationRules.updateApplicationStatus, validate, async (req, res, next) => {
+router.patch('/:id', requireAuth, validationRules.updateApplicationStatus, validate, async (req, res, next) => {
     const { id } = req.params;
     const { status } = req.body; // ACCEPTED, REJECTED
 
@@ -110,7 +110,7 @@ router.patch('/:id', authenticateToken, validationRules.updateApplicationStatus,
 });
 
 // Cancel Application (Volunteer only)
-router.delete('/:id', authenticateToken, async (req, res) => {
+router.delete('/:id', requireAuth, async (req, res) => {
     if (req.user.role !== 'VOLUNTEER') {
         return res.status(403).json({ error: 'Only volunteers can cancel applications' });
     }

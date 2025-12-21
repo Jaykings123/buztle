@@ -12,6 +12,10 @@ const app = express();
 const prisma = new PrismaClient();
 const PORT = process.env.PORT || 3000;
 
+console.log("Checking Env Vars:");
+console.log("CLERK_SECRET_KEY Present:", !!process.env.CLERK_SECRET_KEY);
+console.log("DATABASE_URL Present:", !!process.env.DATABASE_URL);
+
 // Trust proxy - required for rate limiting behind Render/Vercel
 app.set('trust proxy', 1);
 
@@ -20,7 +24,7 @@ app.use(helmet());
 
 // CORS configuration for production
 const corsOptions = {
-    origin: process.env.FRONTEND_URL || 'http://localhost:5173',
+    origin: [process.env.FRONTEND_URL, 'http://localhost:5173', 'http://localhost:3001'].filter(Boolean),
     credentials: true
 };
 
@@ -44,6 +48,7 @@ const eventRoutes = require('./routes/events');
 const applicationRoutes = require('./routes/applications');
 
 app.use('/api/auth', authRoutes);
+app.use('/api/users', require('./routes/users'));
 app.use('/api/events', eventRoutes);
 app.use('/api/applications', applicationRoutes);
 

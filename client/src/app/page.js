@@ -26,10 +26,10 @@ export default function Home() {
         initial={{ y: -20, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
         transition={{ duration: 0.5 }}
-        className="fixed top-4 left-1/2 -translate-x-1/2 z-50 glass-nav rounded-full px-6 py-3"
+        className="fixed top-4 left-1/2 -translate-x-1/2 z-50 glass-nav rounded-full px-4 sm:px-6 py-3"
       >
-        <div className="flex items-center gap-6">
-          <span className="text-xl font-bold" style={{ color: 'var(--text-primary)' }}>Buztle</span>
+        <div className="flex items-center gap-3 sm:gap-6">
+          <span className="text-lg sm:text-xl font-bold" style={{ color: 'var(--text-primary)' }}>Buztle</span>
           <div className="hidden md:flex items-center gap-6">
             <button onClick={scrollToAbout} className="nav-link text-sm">About</button>
             <a href="#features" className="nav-link text-sm">Features</a>
@@ -38,7 +38,7 @@ export default function Home() {
           <ThemeToggle />
           <button
             onClick={() => isSignedIn ? router.push('/dashboard') : router.push('/sign-in')}
-            className="btn-primary text-sm py-2 px-4"
+            className="btn-primary text-xs sm:text-sm py-2 px-3 sm:px-4"
           >
             {isSignedIn ? 'Dashboard' : 'Get Started'}
           </button>
@@ -46,7 +46,7 @@ export default function Home() {
       </motion.nav>
 
       {/* Hero Section */}
-      <section className="min-h-screen flex items-center justify-center pt-20 pb-16 px-6">
+      <section className="min-h-screen flex items-center justify-center pt-24 sm:pt-20 pb-16 px-4 sm:px-6">
         <motion.div
           initial={{ opacity: 0, y: 50 }}
           animate={{ opacity: 1, y: 0 }}
@@ -102,11 +102,11 @@ export default function Home() {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.7, duration: 0.6 }}
-            className="flex flex-col sm:flex-row gap-4 justify-center"
+            className="flex flex-col sm:flex-row gap-3 sm:gap-4 justify-center px-4"
           >
             <button
               onClick={() => isSignedIn ? router.push('/dashboard') : router.push('/sign-in')}
-              className="btn-primary text-base"
+              className="btn-primary text-sm sm:text-base"
             >
               <FiZap className="text-lg" />
               {isSignedIn ? 'Go to Dashboard' : 'Launch App'}
@@ -115,7 +115,7 @@ export default function Home() {
 
             <button
               onClick={scrollToAbout}
-              className="btn-secondary text-base"
+              className="btn-secondary text-sm sm:text-base"
             >
               Learn More
             </button>
@@ -142,14 +142,14 @@ export default function Home() {
       </section>
 
       {/* Stats Section */}
-      <section className="py-20 px-6">
+      <section className="py-16 sm:py-20 px-4 sm:px-6">
         <div className="max-w-6xl mx-auto">
           <motion.div
             initial={{ opacity: 0, y: 40 }}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
             transition={{ duration: 0.6 }}
-            className="grid grid-cols-2 md:grid-cols-4 gap-6"
+            className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-4 gap-3 sm:gap-6"
           >
             <StatCard number="1000+" label="Active Events" delay={0} />
             <StatCard number="5K+" label="Volunteers" delay={0.1} />
